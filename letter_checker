@@ -1,0 +1,78 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial mySerial(11, 12); //RX|TX
+int analogPin = A0; //photo sensor read
+int sensorValue = 0; //variable for the sensor
+int sensorHigh = 1023;
+int sensorLow = 0;
+unsigned long* v_time = 0;
+unsigned long* prev_time = 0;
+
+//time interval check function
+bool time_interval(int interval)
+{
+  *v_time = millis()/1000;
+  if((*v_time - *prev_time) >= interval)
+  {
+    *prev_time = *v_time;
+    return true;  
+  }
+  else return false;
+}  
+
+
+void setup(){
+//start serial communication
+  Serial.begin(9600);
+  mySerial.begin(9600); // default baud rate
+  Serial.write("AT");
+  delay(3000);
+  mySerial.write("AT");
+
+
+  
+//calibration
+  sensorValue = analogRead(A0);
+  while(millis() < 5000)
+  {
+    if(sensorValue > sensorHigh)
+      sensorHigh = sensorValue;
+
+    if(sensorValue < sensorLow)
+      sensorLow = sensorValue;
+  }
+}
+
+void loop(){
+//give some time for preparing : 0.1 second
+  delay(100);
+
+//print sensorValue from the sensor to the monitor
+  if(time_interval(5) == true) //interval_unit is second
+  {
+    Serial.println("v_time:");
+    Serial.println(*v_time);
+    Serial.println('\t');
+    Serial.println("prev_time:");
+    Serial.println(*prev_time);
+    Serial.println('\n');
+    sensorValue = analogRead(A0);
+    Serial.println(sensorValue);
+    Serial.println('\n');
+    delay(1000);
+  }
+  
+//send from Arduino to AT-09
+  while(mySerial.available() != 0 || Serial.available() != 0)
+  {
+    if(Serial.available())
+    {
+        mySerial.println(Serial.readStringUntil('\r'));
+    }
+//send from AT-09 to Arduino
+    if(mySerial.available())
+    {
+      Serial.write(mySerial.read());
+    }
+  }
+}
